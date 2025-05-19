@@ -1,0 +1,648 @@
+﻿@*
+    AI Dashboard - Çalışan İstatistikleri
+*@
+@{
+    ViewData["Title"] = "Çalışan İstatistikleri";
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #60a5fa;
+            --accent-color: #34d399;
+            --danger-color: #f87171;
+            --warning-color: #fbbf24;
+            --success-color: #10b981;
+            --background-gradient: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--background-gradient);
+            min-height: 100vh;
+        }
+
+        /* Modern Card Styles */
+        .chart-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .chart-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .chart-card.wide {
+            grid-column: span 3;
+        }
+
+        /* Chart Container Styles */
+        .chart-container {
+            width: 100%;
+            min-height: 400px;
+            height: 60vh;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* Modern Button Styles */
+        .analyze-btn {
+            background: rgba(52, 211, 153, 0.1);
+            color: var(--success-color);
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(52, 211, 153, 0.2);
+        }
+
+        .analyze-btn:hover {
+            background: rgba(52, 211, 153, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Error Message Styles */
+        .error-message {
+            color: var(--danger-color);
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: rgba(248, 113, 113, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+
+        /* Analysis Result Styles */
+        .analysis-result {
+            background: rgba(241, 245, 249, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-top: 1.25rem;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            transition: all 0.3s ease;
+        }
+
+        .analysis-result:hover {
+            background: rgba(241, 245, 249, 0.9);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Loading Animation */
+        .loading-spinner {
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 3px solid rgba(59, 130, 246, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @@keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Page Title Styles */
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 2rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .page-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        /* Responsive Settings */
+        @@media (max-width: 1024px) {
+            .chart-card.wide {
+                grid-column: span 2;
+            }
+        }
+
+        @@media (max-width: 768px) {
+            .chart-card.wide {
+                grid-column: span 1;
+            }
+
+            .chart-container {
+                height: 50vh;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Chart Customization */
+        .chart-tooltip {
+            background: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            padding: 8px 12px !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="page-title">Çalışanlar İstatistikleri</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Departman Çalışan Sayısı Grafiği -->
+            <div class="chart-card wide">
+                <div class="flex justify-between items-center mb-6 p-6">
+                    <h4 class="text-xl font-semibold text-gray-900">Departman Bazında Çalışan Sayısı</h4>
+                    <div class="flex space-x-2">
+                        <button id="analyzeBtnDepartmanCalisanSayisi" class="analyze-btn">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                                AI Analiz
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-container px-6 pb-6">
+                    <canvas id="departmanCalisanSayisiChart"></canvas>
+                </div>
+
+                <div id="errorMessageDepartmanCalisanSayisi" class="error-message" style="display: none;"></div>
+
+                <div id="analysisResultDepartmanCalisanSayisi" class="analysis-result hidden mx-6 mb-6">
+                    <h4 class="font-semibold mb-3 text-gray-800">Analiz Sonucu</h4>
+                    <div id="analysisContentDepartmanCalisanSayisi" class="text-sm text-gray-600"></div>
+                    <div id="analysisLoadingDepartmanCalisanSayisi" class="hidden flex items-center mt-3">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Analiz oluşturuluyor...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Çalışan Performans Ortalamaları Grafiği -->
+            <div class="chart-card wide">
+                <div class="flex justify-between items-center mb-6 p-6">
+                    <h4 class="text-xl font-semibold text-gray-900">Departman Bazında Performans Ortalamaları</h4>
+                    <div class="flex space-x-2">
+                        <button id="analyzeBtnPerformansOrtalama" class="analyze-btn">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                                AI Analiz
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-container px-6 pb-6">
+                    <canvas id="performansOrtalamaChart"></canvas>
+                </div>
+
+                <div id="errorMessagePerformansOrtalama" class="error-message" style="display: none;"></div>
+
+                <div id="analysisResultPerformansOrtalama" class="analysis-result hidden mx-6 mb-6">
+                    <h4 class="font-semibold mb-3 text-gray-800">Analiz Sonucu</h4>
+                    <div id="analysisContentPerformansOrtalama" class="text-sm text-gray-600"></div>
+                    <div id="analysisLoadingPerformansOrtalama" class="hidden flex items-center mt-3">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Analiz oluşturuluyor...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Çalışan Maaş Dağılımı Grafiği -->
+            <div class="chart-card wide">
+                <div class="flex justify-between items-center mb-6 p-6">
+                    <h4 class="text-xl font-semibold text-gray-900">Departman Bazında Ortalama Maaşlar</h4>
+                    <div class="flex space-x-2">
+                        <button id="analyzeBtnMaasDagilim" class="analyze-btn">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                                AI Analiz
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-container px-6 pb-6">
+                    <canvas id="maasDagilimChart"></canvas>
+                </div>
+
+                <div id="errorMessageMaasDagilim" class="error-message" style="display: none;"></div>
+
+                <div id="analysisResultMaasDagilim" class="analysis-result hidden mx-6 mb-6">
+                    <h4 class="font-semibold mb-3 text-gray-800">Analiz Sonucu</h4>
+                    <div id="analysisContentMaasDagilim" class="text-sm text-gray-600"></div>
+                    <div id="analysisLoadingMaasDagilim" class="hidden flex items-center mt-3">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Analiz oluşturuluyor...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js global ayarları
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+        Chart.defaults.plugins.tooltip.titleColor = '#1e293b';
+        Chart.defaults.plugins.tooltip.bodyColor = '#475569';
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.3)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        Chart.defaults.plugins.tooltip.padding = 12;
+        Chart.defaults.plugins.tooltip.boxPadding = 6;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const errorMessageDepartmanCalisanSayisi = document.getElementById('errorMessageDepartmanCalisanSayisi');
+            const errorMessagePerformansOrtalama = document.getElementById('errorMessagePerformansOrtalama');
+            const errorMessageMaasDagilim = document.getElementById('errorMessageMaasDagilim');
+            
+            // Departman Çalışan Sayısı Grafiği
+            const departmanCalisanSayisiCtx = document.getElementById('departmanCalisanSayisiChart').getContext('2d');
+            let departmanCalisanSayisiChart;
+            let currentDepartmanCalisanSayisiData;
+            
+            // Performans Ortalamaları Grafiği
+            const performansOrtalamaCtx = document.getElementById('performansOrtalamaChart').getContext('2d');
+            let performansOrtalamaChart;
+            let currentPerformansOrtalamaData;
+            
+            // Maaş Dağılımı Grafiği
+            const maasDagilimCtx = document.getElementById('maasDagilimChart').getContext('2d');
+            let maasDagilimChart;
+            let currentMaasDagilimData;
+
+            // Veri yükleme fonksiyonu
+            const loadDepartmanCalisanSayisiData = async () => {
+                try {
+                    const response = await fetch('/Dashboard/GetDepartmanCalisanSayisiData');
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Veri çekme hatası');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Grafik verisi boşsa hata göster
+                    if (!data.labels || data.labels.length === 0) {
+                        errorMessageDepartmanCalisanSayisi.textContent = 'Departman çalışan sayısı verisi bulunamadı.';
+                        errorMessageDepartmanCalisanSayisi.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Veriyi sakla
+                    currentDepartmanCalisanSayisiData = data;
+                    
+                    // Grafik oluştur
+                    departmanCalisanSayisiChart = new Chart(departmanCalisanSayisiCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.labels,
+                            datasets: data.datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        precision: 0
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw} kişi`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    errorMessageDepartmanCalisanSayisi.style.display = 'none';
+                } catch (error) {
+                    console.error('Veri yükleme hatası:', error);
+                    errorMessageDepartmanCalisanSayisi.textContent = `Hata: ${error.message}`;
+                    errorMessageDepartmanCalisanSayisi.style.display = 'block';
+                }
+            };
+
+            // Departman Çalışan Sayısı verisini yükle
+            loadDepartmanCalisanSayisiData();
+
+            // Veri yükleme fonksiyonu - Performans Ortalamaları
+            const loadPerformansOrtalamaData = async () => {
+                try {
+                    const response = await fetch('/Dashboard/GetCalisanPerformansData');
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Veri çekme hatası');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Grafik verisi boşsa hata göster
+                    if (!data.labels || data.labels.length === 0) {
+                        errorMessagePerformansOrtalama.textContent = 'Performans ortalamaları verisi bulunamadı.';
+                        errorMessagePerformansOrtalama.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Veriyi sakla
+                    currentPerformansOrtalamaData = data;
+                    
+                    // Grafik oluştur
+                    performansOrtalamaChart = new Chart(performansOrtalamaCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.labels,
+                            datasets: data.datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value + '/10';
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw.toFixed(1)}/10`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    errorMessagePerformansOrtalama.style.display = 'none';
+                } catch (error) {
+                    console.error('Veri yükleme hatası:', error);
+                    errorMessagePerformansOrtalama.textContent = `Hata: ${error.message}`;
+                    errorMessagePerformansOrtalama.style.display = 'block';
+                }
+            };
+
+            // Performans Ortalamaları verisini yükle
+            loadPerformansOrtalamaData();
+
+            // Veri yükleme fonksiyonu - Maaş Dağılımı
+            const loadMaasDagilimData = async () => {
+                try {
+                    const response = await fetch('/Dashboard/GetCalisanMaasDagilimData');
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Veri çekme hatası');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Grafik verisi boşsa hata göster
+                    if (!data.labels || data.labels.length === 0) {
+                        errorMessageMaasDagilim.textContent = 'Maaş dağılımı verisi bulunamadı.';
+                        errorMessageMaasDagilim.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Veriyi sakla
+                    currentMaasDagilimData = data;
+                    
+                    // Grafik oluştur
+                    maasDagilimChart = new Chart(maasDagilimCtx, {
+                        type: 'line',
+                        data: {
+                            labels: data.labels,
+                            datasets: data.datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return value.toLocaleString('tr-TR') + ' ₺';
+                                        }
+                                    }
+                                }
+                            },
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `${context.dataset.label}: ${context.raw.toLocaleString('tr-TR')} ₺`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    errorMessageMaasDagilim.style.display = 'none';
+                } catch (error) {
+                    console.error('Veri yükleme hatası:', error);
+                    errorMessageMaasDagilim.textContent = `Hata: ${error.message}`;
+                    errorMessageMaasDagilim.style.display = 'block';
+                }
+            };
+
+            // Maaş Dağılımı verisini yükle
+            loadMaasDagilimData();
+
+            // AI analiz butonuna tıklama işleyicisi
+            document.getElementById('analyzeBtnDepartmanCalisanSayisi').addEventListener('click', async () => {
+                const analysisResult = document.getElementById('analysisResultDepartmanCalisanSayisi');
+                const analysisContent = document.getElementById('analysisContentDepartmanCalisanSayisi');
+                const analysisLoading = document.getElementById('analysisLoadingDepartmanCalisanSayisi');
+                
+                if (!currentDepartmanCalisanSayisiData) return;
+                
+                analysisResult.classList.remove('hidden');
+                analysisContent.textContent = '';
+                analysisLoading.classList.remove('hidden');
+                
+                try {
+                    const response = await fetch('/api/analysis/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chartType: 'departman_calisan_sayisi',
+                            data: {
+                                labels: currentDepartmanCalisanSayisiData.labels,
+                                datasets: currentDepartmanCalisanSayisiData.datasets.map(d => ({
+                                    label: d.label,
+                                    data: d.data
+                                }))
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Analysis failed: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    analysisContent.innerHTML = result.analysis.replace(/\n/g, '<br>');
+                } catch (error) {
+                    analysisLoading.classList.add('hidden');
+                    analysisContent.textContent = `Analiz oluşturulurken bir hata oluştu: ${error.message}`;
+                }
+                finally {
+                    analysisLoading.classList.add('hidden');
+                }
+            });
+
+            // AI analiz butonuna tıklama işleyicisi - Performans Ortalamaları
+            document.getElementById('analyzeBtnPerformansOrtalama').addEventListener('click', async () => {
+                const analysisResult = document.getElementById('analysisResultPerformansOrtalama');
+                const analysisContent = document.getElementById('analysisContentPerformansOrtalama');
+                const analysisLoading = document.getElementById('analysisLoadingPerformansOrtalama');
+                
+                if (!currentPerformansOrtalamaData) return;
+                
+                analysisResult.classList.remove('hidden');
+                analysisContent.textContent = '';
+                analysisLoading.classList.remove('hidden');
+                
+                try {
+                    const response = await fetch('/api/analysis/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chartType: 'calisan_performans',
+                            data: {
+                                labels: currentPerformansOrtalamaData.labels,
+                                datasets: currentPerformansOrtalamaData.datasets.map(d => ({
+                                    label: d.label,
+                                    data: d.data
+                                }))
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Analysis failed: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    analysisContent.innerHTML = result.analysis.replace(/\n/g, '<br>');
+                } catch (error) {
+                    analysisLoading.classList.add('hidden');
+                    analysisContent.textContent = `Analiz oluşturulurken bir hata oluştu: ${error.message}`;
+                }
+                finally {
+                    analysisLoading.classList.add('hidden');
+                }
+            });
+
+            // AI analiz butonuna tıklama işleyicisi - Maaş Dağılımı
+            document.getElementById('analyzeBtnMaasDagilim').addEventListener('click', async () => {
+                const analysisResult = document.getElementById('analysisResultMaasDagilim');
+                const analysisContent = document.getElementById('analysisContentMaasDagilim');
+                const analysisLoading = document.getElementById('analysisLoadingMaasDagilim');
+                
+                if (!currentMaasDagilimData) return;
+                
+                analysisResult.classList.remove('hidden');
+                analysisContent.textContent = '';
+                analysisLoading.classList.remove('hidden');
+                
+                try {
+                    const response = await fetch('/api/analysis/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chartType: 'calisan_maas',
+                            data: {
+                                labels: currentMaasDagilimData.labels,
+                                datasets: currentMaasDagilimData.datasets.map(d => ({
+                                    label: d.label,
+                                    data: d.data
+                                }))
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Analysis failed: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    analysisContent.innerHTML = result.analysis.replace(/\n/g, '<br>');
+                } catch (error) {
+                    analysisLoading.classList.add('hidden');
+                    analysisContent.textContent = `Analiz oluşturulurken bir hata oluştu: ${error.message}`;
+                }
+                finally {
+                    analysisLoading.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

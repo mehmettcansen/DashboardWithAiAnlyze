@@ -1,0 +1,1029 @@
+﻿@*
+    AI Dashboard - Finansal Veriler
+*@
+@{
+    ViewData["Title"] = "Finansal Veriler";
+}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"]</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #60a5fa;
+            --accent-color: #34d399;
+            --danger-color: #f87171;
+            --warning-color: #fbbf24;
+            --success-color: #10b981;
+            --background-gradient: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--background-gradient);
+            min-height: 100vh;
+        }
+
+        /* Modern Card Styles */
+        .chart-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .chart-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .chart-card.wide {
+            grid-column: span 3;
+        }
+
+        /* Chart Container Styles */
+        .chart-container {
+            width: 100%;
+            min-height: 400px;
+            height: 60vh;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        /* Modern Button Styles */
+        .analyze-btn {
+            background: rgba(52, 211, 153, 0.1);
+            color: var(--success-color);
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(52, 211, 153, 0.2);
+        }
+
+        .analyze-btn:hover {
+            background: rgba(52, 211, 153, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Error Message Styles */
+        .error-message {
+            color: var(--danger-color);
+            font-size: 0.875rem;
+            text-align: center;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background: rgba(248, 113, 113, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+
+        /* Analysis Result Styles */
+        .analysis-result {
+            background: rgba(241, 245, 249, 0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-top: 1.25rem;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            transition: all 0.3s ease;
+        }
+
+        .analysis-result:hover {
+            background: rgba(241, 245, 249, 0.9);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Loading Animation */
+        .loading-spinner {
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 3px solid rgba(59, 130, 246, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @@keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Page Title Styles */
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 2rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        .page-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: var(--primary-color);
+            border-radius: 2px;
+        }
+
+        /* Responsive Settings */
+        @@media (max-width: 1024px) {
+            .chart-card.wide {
+                grid-column: span 2;
+            }
+        }
+
+        @@media (max-width: 768px) {
+            .chart-card.wide {
+                grid-column: span 1;
+            }
+
+            .chart-container {
+                height: 50vh;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+        }
+
+        /* Chart Customization */
+        .chart-tooltip {
+            background: rgba(255, 255, 255, 0.9) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.3) !important;
+            padding: 8px 12px !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="page-title">Finansal Veriler</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Gelir-Gider Grafiği -->
+            <div class="chart-card wide">
+                <div class="flex justify-between items-center mb-6 p-6">
+                    <h4 class="text-xl font-semibold text-gray-900">Gelir-Gider Trendi</h4>
+                    <div class="flex space-x-2">
+                        <button id="toggleCurrency" class="analyze-btn mr-2">Bin ₺</button>
+                        <button id="analyzeBtn" class="analyze-btn">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                                AI Analiz
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-container px-6 pb-6">
+                    <canvas id="gelirGiderChart"></canvas>
+                </div>
+
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+                <div id="analysisResult" class="analysis-result hidden mx-6 mb-6">
+                    <h4 class="font-semibold mb-3 text-gray-800">Analiz Sonucu</h4>
+                    <div id="analysisContent" class="text-sm text-gray-600"></div>
+                    <div id="analysisLoading" class="hidden flex items-center mt-3">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Analiz oluşturuluyor...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gider Dağılımı Grafiği -->
+            <div class="chart-card wide">
+                <div class="flex justify-between items-center mb-6 p-6">
+                    <h4 class="text-xl font-semibold text-gray-900">Gider Dağılımı</h4>
+                    <div class="flex space-x-2">
+                        <button id="analyzeBtnGiderDagilim" class="analyze-btn">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                                AI Analiz
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-container px-6 pb-6">
+                    <canvas id="giderDagilimChart"></canvas>
+                </div>
+
+                <div id="errorMessageGiderDagilim" class="error-message" style="display: none;"></div>
+
+                <div id="analysisResultGiderDagilim" class="analysis-result hidden mx-6 mb-6">
+                    <h4 class="font-semibold mb-3 text-gray-800">Analiz Sonucu</h4>
+                    <div id="analysisContentGiderDagilim" class="text-sm text-gray-600"></div>
+                    <div id="analysisLoadingGiderDagilim" class="hidden flex items-center mt-3">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Analiz oluşturuluyor...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kâr/Zarar Grafiği -->
+            <div class="chart-card wide">
+                <div class="flex justify-between items-center mb-6 p-6">
+                    <h4 class="text-xl font-semibold text-gray-900">Kâr/Zarar Trendi</h4>
+                    <div class="flex space-x-2">
+                        <button id="toggleCurrencyKarZarar" class="analyze-btn mr-2">Bin ₺</button>
+                        <button id="analyzeBtnKarZarar" class="analyze-btn">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                                AI Analiz
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-container px-6 pb-6">
+                    <canvas id="karZararChart"></canvas>
+                </div>
+
+                <div id="errorMessageKarZarar" class="error-message" style="display: none;"></div>
+
+                <div id="analysisResultKarZarar" class="analysis-result hidden mx-6 mb-6">
+                    <h4 class="font-semibold mb-3 text-gray-800">Analiz Sonucu</h4>
+                    <div id="analysisContentKarZarar" class="text-sm text-gray-600"></div>
+                    <div id="analysisLoadingKarZarar" class="hidden flex items-center mt-3">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Analiz oluşturuluyor...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Borç/Alacak Grafiği -->
+            <div class="chart-card wide">
+                <div class="flex justify-between items-center mb-6 p-6">
+                    <h4 class="text-xl font-semibold text-gray-900">Borç/Alacak Trendi</h4>
+                    <div class="flex space-x-2">
+                        <button id="toggleCurrencyBorcAlacak" class="analyze-btn mr-2">Bin ₺</button>
+                        <button id="analyzeBtnBorcAlacak" class="analyze-btn">
+                            <span class="flex items-center">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                </svg>
+                                AI Analiz
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="chart-container px-6 pb-6">
+                    <canvas id="borcAlacakChart"></canvas>
+                </div>
+
+                <div id="errorMessageBorcAlacak" class="error-message" style="display: none;"></div>
+
+                <div id="analysisResultBorcAlacak" class="analysis-result hidden mx-6 mb-6">
+                    <h4 class="font-semibold mb-3 text-gray-800">Analiz Sonucu</h4>
+                    <div id="analysisContentBorcAlacak" class="text-sm text-gray-600"></div>
+                    <div id="analysisLoadingBorcAlacak" class="hidden flex items-center mt-3">
+                        <div class="loading-spinner mr-3"></div>
+                        <span class="text-gray-600">Analiz oluşturuluyor...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js global ayarları
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+        Chart.defaults.plugins.tooltip.titleColor = '#1e293b';
+        Chart.defaults.plugins.tooltip.bodyColor = '#475569';
+        Chart.defaults.plugins.tooltip.borderColor = 'rgba(255, 255, 255, 0.3)';
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+        Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        Chart.defaults.plugins.tooltip.padding = 12;
+        Chart.defaults.plugins.tooltip.boxPadding = 6;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Gelir-Gider Grafiği
+            const errorMessageDiv = document.getElementById('errorMessage');
+            const toggleCurrencyBtn = document.getElementById('toggleCurrency');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const analysisResult = document.getElementById('analysisResult');
+            const analysisContent = document.getElementById('analysisContent');
+            const analysisLoading = document.getElementById('analysisLoading');
+
+            let showInThousands = true;
+            let chartInstance = null;
+            let currentChartData = null;
+
+            // Chart creation function
+            function createChart(data) {
+                const ctx = document.getElementById('gelirGiderChart').getContext('2d');
+
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+
+                // Store current data for analysis
+                currentChartData = data;
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: data.datasets.map(dataset => ({
+                            ...dataset,
+                            data: showInThousands ?
+                                dataset.data.map(value => value / 1000) :
+                                dataset.data
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20,
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                bodyFont: { size: 14 },
+                                titleFont: { size: 16, weight: 'bold' },
+                                padding: 12,
+                                cornerRadius: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = showInThousands ?
+                                            context.parsed.y.toLocaleString('tr-TR') + ' Bin ₺' :
+                                            context.parsed.y.toLocaleString('tr-TR') + ' ₺';
+                                        return context.dataset.label + ': ' + value;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return showInThousands ?
+                                            value.toLocaleString('tr-TR') + 'K ₺' :
+                                            value.toLocaleString('tr-TR') + ' ₺';
+                                    },
+                                    padding: 10
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45,
+                                    padding: 10,
+                                    autoSkip: false
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: {
+                                left: 20,
+                                right: 20,
+                                top: 20,
+                                bottom: 40
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 3,
+                                hoverRadius: 6
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Data fetching function
+            async function fetchData() {
+                try {
+                    const response = await fetch('/Dashboard/GetGelirGiderData');
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.labels || !data.datasets || data.labels.length === 0) {
+                        errorMessageDiv.textContent = 'Veri bulunamadı veya geçersiz veri formatı.';
+                        errorMessageDiv.style.display = 'block';
+                        return;
+                    }
+
+                    createChart(data);
+
+                } catch (error) {
+                    console.error('Grafik oluşturma hatası:', error);
+                    errorMessageDiv.textContent = 'Veri çekme hatası: ' + error.message;
+                    errorMessageDiv.style.display = 'block';
+                }
+            }
+
+            // Gider Dağılımı grafiği için gerekli değişkenler
+            const errorMessageGiderDagilimDiv = document.getElementById('errorMessageGiderDagilim');
+            const analyzeBtnGiderDagilim = document.getElementById('analyzeBtnGiderDagilim');
+            const analysisResultGiderDagilim = document.getElementById('analysisResultGiderDagilim');
+            const analysisContentGiderDagilim = document.getElementById('analysisContentGiderDagilim');
+            const analysisLoadingGiderDagilim = document.getElementById('analysisLoadingGiderDagilim');
+            
+            let giderDagilimChartInstance = null;
+            let currentGiderDagilimData = null;
+
+            // Gider Dağılımı grafiği oluşturma fonksiyonu
+            function createGiderDagilimChart(data) {
+                const ctx = document.getElementById('giderDagilimChart').getContext('2d');
+
+                if (giderDagilimChartInstance) {
+                    giderDagilimChartInstance.destroy();
+                }
+
+                // Şu anki veriyi saklayalım (analiz için)
+                currentGiderDagilimData = data;
+
+                giderDagilimChartInstance = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            {
+                                data: data.datasets[0].data,
+                                backgroundColor: data.datasets[0].backgroundColor,
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20,
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                bodyFont: { size: 14 },
+                                titleFont: { size: 16, weight: 'bold' },
+                                padding: 12,
+                                cornerRadius: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = context.parsed.toLocaleString('tr-TR') + ' ₺';
+                                        const label = context.label || '';
+                                        
+                                        // Toplam değer
+                                        const sum = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = Math.round((context.parsed / sum * 100) * 10) / 10;
+                                        
+                                        return `${label}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: {
+                                left: 20,
+                                right: 20,
+                                top: 20,
+                                bottom: 20
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Gider Dağılımı verisi çekme fonksiyonu
+            async function fetchGiderDagilimData() {
+                try {
+                    const response = await fetch('/Dashboard/GetGiderDagilimData');
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.labels || !data.datasets || data.labels.length === 0) {
+                        errorMessageGiderDagilimDiv.textContent = 'Veri bulunamadı veya geçersiz veri formatı.';
+                        errorMessageGiderDagilimDiv.style.display = 'block';
+                        return;
+                    }
+
+                    createGiderDagilimChart(data);
+
+                } catch (error) {
+                    console.error('Gider Dağılımı grafik oluşturma hatası:', error);
+                    errorMessageGiderDagilimDiv.textContent = 'Veri çekme hatası: ' + error.message;
+                    errorMessageGiderDagilimDiv.style.display = 'block';
+                }
+            }
+
+            // Kâr/Zarar grafiği için gerekli değişkenler
+            const errorMessageKarZararDiv = document.getElementById('errorMessageKarZarar');
+            const toggleCurrencyKarZararBtn = document.getElementById('toggleCurrencyKarZarar');
+            const analyzeBtnKarZarar = document.getElementById('analyzeBtnKarZarar');
+            const analysisResultKarZarar = document.getElementById('analysisResultKarZarar');
+            const analysisContentKarZarar = document.getElementById('analysisContentKarZarar');
+            const analysisLoadingKarZarar = document.getElementById('analysisLoadingKarZarar');
+            
+            let showInThousandsKarZarar = true;
+            let karZararChartInstance = null;
+            let currentKarZararData = null;
+
+            // Kâr/Zarar grafiği oluşturma fonksiyonu
+            function createKarZararChart(data) {
+                const ctx = document.getElementById('karZararChart').getContext('2d');
+
+                if (karZararChartInstance) {
+                    karZararChartInstance.destroy();
+                }
+
+                // Şu anki veriyi saklayalım (analiz için)
+                currentKarZararData = data;
+
+                karZararChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: data.datasets.map(dataset => ({
+                            ...dataset,
+                            data: showInThousandsKarZarar ?
+                                dataset.data.map(value => value / 1000) :
+                                dataset.data
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20,
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                bodyFont: { size: 14 },
+                                titleFont: { size: 16, weight: 'bold' },
+                                padding: 12,
+                                cornerRadius: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = showInThousandsKarZarar ?
+                                            context.parsed.y.toLocaleString('tr-TR') + ' Bin ₺' :
+                                            context.parsed.y.toLocaleString('tr-TR') + ' ₺';
+                                        return context.dataset.label + ': ' + value;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return showInThousandsKarZarar ?
+                                            value.toLocaleString('tr-TR') + 'K ₺' :
+                                            value.toLocaleString('tr-TR') + ' ₺';
+                                    },
+                                    padding: 10
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45,
+                                    padding: 10,
+                                    autoSkip: false
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: {
+                                left: 20,
+                                right: 20,
+                                top: 20,
+                                bottom: 40
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 3,
+                                hoverRadius: 6
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Kâr/Zarar verisi çekme fonksiyonu
+            async function fetchKarZararData() {
+                try {
+                    const response = await fetch('/Dashboard/GetKarZararData');
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.labels || !data.datasets || data.labels.length === 0) {
+                        errorMessageKarZararDiv.textContent = 'Veri bulunamadı veya geçersiz veri formatı.';
+                        errorMessageKarZararDiv.style.display = 'block';
+                        return;
+                    }
+
+                    createKarZararChart(data);
+
+                } catch (error) {
+                    console.error('Kâr/Zarar grafik oluşturma hatası:', error);
+                    errorMessageKarZararDiv.textContent = 'Veri çekme hatası: ' + error.message;
+                    errorMessageKarZararDiv.style.display = 'block';
+                }
+            }
+
+            // Borç ve Alacak Trendleri grafiği için gerekli değişkenler
+            const errorMessageBorcAlacakDiv = document.getElementById('errorMessageBorcAlacak');
+            const toggleCurrencyBorcAlacakBtn = document.getElementById('toggleCurrencyBorcAlacak');
+            const analyzeBtnBorcAlacak = document.getElementById('analyzeBtnBorcAlacak');
+            const analysisResultBorcAlacak = document.getElementById('analysisResultBorcAlacak');
+            const analysisContentBorcAlacak = document.getElementById('analysisContentBorcAlacak');
+            const analysisLoadingBorcAlacak = document.getElementById('analysisLoadingBorcAlacak');
+            
+            let showInThousandsBorcAlacak = true;
+            let borcAlacakChartInstance = null;
+            let currentBorcAlacakData = null;
+
+            // Borç ve Alacak Trendleri grafiği oluşturma fonksiyonu
+            function createBorcAlacakChart(data) {
+                const ctx = document.getElementById('borcAlacakChart').getContext('2d');
+
+                if (borcAlacakChartInstance) {
+                    borcAlacakChartInstance.destroy();
+                }
+
+                // Şu anki veriyi saklayalım (analiz için)
+                currentBorcAlacakData = data;
+
+                borcAlacakChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: data.datasets.map(dataset => ({
+                            ...dataset,
+                            data: showInThousandsBorcAlacak ?
+                                dataset.data.map(value => value / 1000) :
+                                dataset.data
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20,
+                                    font: {
+                                        size: 14
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                                bodyFont: { size: 14 },
+                                titleFont: { size: 16, weight: 'bold' },
+                                padding: 12,
+                                cornerRadius: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const value = showInThousandsBorcAlacak ?
+                                            context.parsed.y.toLocaleString('tr-TR') + ' Bin ₺' :
+                                            context.parsed.y.toLocaleString('tr-TR') + ' ₺';
+                                        return context.dataset.label + ': ' + value;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.1)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return showInThousandsBorcAlacak ?
+                                            value.toLocaleString('tr-TR') + 'K ₺' :
+                                            value.toLocaleString('tr-TR') + ' ₺';
+                                    },
+                                    padding: 10
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45,
+                                    padding: 10,
+                                    autoSkip: false
+                                }
+                            }
+                        },
+                        layout: {
+                            padding: {
+                                left: 20,
+                                right: 20,
+                                top: 20,
+                                bottom: 40
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 3,
+                                hoverRadius: 6
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Borç ve Alacak Trendleri verisi çekme fonksiyonu
+            async function fetchBorcAlacakData() {
+                try {
+                    const response = await fetch('/Dashboard/GetBorcAlacakData');
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    if (!data.labels || !data.datasets || data.labels.length === 0) {
+                        errorMessageBorcAlacakDiv.textContent = 'Veri bulunamadı veya geçersiz veri formatı.';
+                        errorMessageBorcAlacakDiv.style.display = 'block';
+                        return;
+                    }
+
+                    createBorcAlacakChart(data);
+
+                } catch (error) {
+                    console.error('Borç ve Alacak Trendleri grafik oluşturma hatası:', error);
+                    errorMessageBorcAlacakDiv.textContent = 'Veri çekme hatası: ' + error.message;
+                    errorMessageBorcAlacakDiv.style.display = 'block';
+                }
+            }
+
+            // Event Listeners
+            toggleCurrencyBtn.addEventListener('click', () => {
+                showInThousands = !showInThousands;
+                toggleCurrencyBtn.textContent = showInThousands ? 'Bin ₺' : '₺';
+                if (currentChartData) {
+                    createChart(currentChartData);
+                }
+            });
+
+            toggleCurrencyKarZararBtn.addEventListener('click', () => {
+                showInThousandsKarZarar = !showInThousandsKarZarar;
+                toggleCurrencyKarZararBtn.textContent = showInThousandsKarZarar ? 'Bin ₺' : '₺';
+                if (currentKarZararData) {
+                    createKarZararChart(currentKarZararData);
+                }
+            });
+
+            toggleCurrencyBorcAlacakBtn.addEventListener('click', () => {
+                showInThousandsBorcAlacak = !showInThousandsBorcAlacak;
+                toggleCurrencyBorcAlacakBtn.textContent = showInThousandsBorcAlacak ? 'Bin ₺' : '₺';
+                if (currentBorcAlacakData) {
+                    createBorcAlacakChart(currentBorcAlacakData);
+                }
+            });
+
+            // AI Analysis buttons
+            analyzeBtn.addEventListener('click', async () => {
+                if (!currentChartData) return;
+
+                analysisResult.classList.remove('hidden');
+                analysisContent.innerHTML = '';
+                analysisLoading.classList.remove('hidden');
+
+                try {
+                    const response = await fetch('/api/analysis/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chartType: 'gelir_gider',
+                            data: {
+                                labels: currentChartData.labels,
+                                datasets: currentChartData.datasets.map(d => ({
+                                    label: d.label,
+                                    data: d.data
+                                }))
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Analysis failed: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    analysisContent.innerHTML = result.analysis.replace(/\n/g, '<br>');
+
+                } catch (error) {
+                    analysisContent.innerHTML = `Hata: ${error.message}`;
+                    console.error('Analysis error:', error);
+                } finally {
+                    analysisLoading.classList.add('hidden');
+                }
+            });
+
+            analyzeBtnGiderDagilim.addEventListener('click', async () => {
+                if (!currentGiderDagilimData) return;
+
+                analysisResultGiderDagilim.classList.remove('hidden');
+                analysisContentGiderDagilim.innerHTML = '';
+                analysisLoadingGiderDagilim.classList.remove('hidden');
+
+                try {
+                    const response = await fetch('/api/analysis/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chartType: 'gider_dagilim',
+                            data: {
+                                labels: currentGiderDagilimData.labels,
+                                datasets: currentGiderDagilimData.datasets.map(d => ({
+                                    label: d.label || 'Gider',
+                                    data: d.data
+                                }))
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Analysis failed: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    analysisContentGiderDagilim.innerHTML = result.analysis.replace(/\n/g, '<br>');
+
+                } catch (error) {
+                    analysisContentGiderDagilim.innerHTML = `Hata: ${error.message}`;
+                    console.error('Analysis error:', error);
+                } finally {
+                    analysisLoadingGiderDagilim.classList.add('hidden');
+                }
+            });
+
+            analyzeBtnKarZarar.addEventListener('click', async () => {
+                if (!currentKarZararData) return;
+
+                analysisResultKarZarar.classList.remove('hidden');
+                analysisContentKarZarar.innerHTML = '';
+                analysisLoadingKarZarar.classList.remove('hidden');
+
+                try {
+                    const response = await fetch('/api/analysis/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chartType: 'kar_zarar',
+                            data: {
+                                labels: currentKarZararData.labels,
+                                datasets: currentKarZararData.datasets.map(d => ({
+                                    label: d.label,
+                                    data: d.data
+                                }))
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Analysis failed: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    analysisContentKarZarar.innerHTML = result.analysis.replace(/\n/g, '<br>');
+
+                } catch (error) {
+                    analysisContentKarZarar.innerHTML = `Hata: ${error.message}`;
+                    console.error('Analysis error:', error);
+                } finally {
+                    analysisLoadingKarZarar.classList.add('hidden');
+                }
+            });
+
+            analyzeBtnBorcAlacak.addEventListener('click', async () => {
+                if (!currentBorcAlacakData) return;
+
+                analysisResultBorcAlacak.classList.remove('hidden');
+                analysisContentBorcAlacak.innerHTML = '';
+                analysisLoadingBorcAlacak.classList.remove('hidden');
+
+                try {
+                    const response = await fetch('/api/analysis/analyze', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chartType: 'borc_alacak',
+                            data: {
+                                labels: currentBorcAlacakData.labels,
+                                datasets: currentBorcAlacakData.datasets.map(d => ({
+                                    label: d.label,
+                                    data: d.data
+                                }))
+                            }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Analysis failed: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    analysisContentBorcAlacak.innerHTML = result.analysis.replace(/\n/g, '<br>');
+
+                } catch (error) {
+                    analysisContentBorcAlacak.innerHTML = `Hata: ${error.message}`;
+                    console.error('Analysis error:', error);
+                } finally {
+                    analysisLoadingBorcAlacak.classList.add('hidden');
+                }
+            });
+
+            // Initial data load
+            fetchData();
+            fetchGiderDagilimData();
+            fetchKarZararData();
+            fetchBorcAlacakData();
+        });
+    </script>
+</body>
+</html>
